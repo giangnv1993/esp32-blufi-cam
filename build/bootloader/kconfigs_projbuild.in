@@ -1,0 +1,3 @@
+source "C:/Users/mrgia/Desktop/esp-who/esp-who/esp-idf/components/bootloader/Kconfig.projbuild"
+source "C:/Users/mrgia/Desktop/esp-who/esp-who/esp-idf/components/esptool_py/Kconfig.projbuild"
+source "C:/Users/mrgia/Desktop/esp-who/esp-who/esp-idf/components/partition_table/Kconfig.projbuild"
