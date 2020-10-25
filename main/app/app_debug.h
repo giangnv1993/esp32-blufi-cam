@@ -1,4 +1,4 @@
-/** @file: vsm_debug.h
+/** @file: APP_DEBUG.h
  *  @desc: this is a C header file
  *  @author: v.manhbt1@vinsmart.net.vn
  *  HISTORY:
@@ -52,7 +52,7 @@ void debug_nothing(const char* sz, ...);
 	}while(0)
 
 #else
-#define VSM_DEBUG(...)
+#define APP_DEBUG(...)
 #endif
 
 

@@ -11,10 +11,15 @@
 #include <stdlib.h>
 
 
-#include "../main.h"
 
 #include "ProcessTask.h"
 #include "../app/app.h"
+
+#include "../app/device_info/device_info.h"
+
+#include "../app/app_debug.h"
+#include "../app/app_delay.h"
+#include "../app/smartconfig/blufi.h"
 
 
 static void ProcessTask(void *pvParameters);
@@ -36,13 +41,14 @@ static void ProcessTask_OTA_Handler(void);
 void ProcessTask(void *pvParameters);
 
 
-uint32_t ProcessEvent = (uint32_t)EVT_PROCESS_IDLE;
+uint32_t ProcessEvent = (uint32_t)EVT_WIFI_START;
 
 extern Flag_t xFlag;
 
 
-extern wifi_info_t _WifiInfo;
+extern AppConfig_t AppConfig;
 
+extern device_data_t device_data;
 
 void ProcessTask_Init(void)
 {
@@ -51,30 +57,33 @@ void ProcessTask_Init(void)
 
 static void ProcessTask(void *pvParameters)
 {
-	vTaskDelay(10);
+	vTaskDelay(5);
 
 	while(1)
 	{
 		ProcessTask_EventHandler();
-		if(bDelay_ms(DELAY_DEBUG1, 1000) != false)
+		if(bDelay_ms(DELAY_DEBUG1, 5000) != false)		//for dev_test
 			APP_DEBUG("running....\r\n");
 
 		if( (ProcessEvent & EVT_SET_LIGHT_ON) == EVT_SET_LIGHT_ON )
 		{
-			GPIO_Set_Pin_High(GPIO_OUTPUT_LIGHT);
-			vTaskDelay(300);
 			GPIO_Set_Pin_Low(GPIO_OUTPUT_LIGHT);
-			printf("set pin light high\r\n");
-			ProcessEvent ^= EVT_SET_LIGHT_ON;
+			if((bDelay_ms(LIGHT_TIMER, device_data.time_on_uv*60000/6) != false) || (device_data.lock == 1))
+			{
+				APP_DEBUG("turn off light uv because time out or door opened\r\n");
+				GPIO_Set_Pin_High(GPIO_OUTPUT_LIGHT);
+				ProcessEvent ^= EVT_SET_LIGHT_ON;
+				device_data.lock = 0;
+			}
 		}
 
 		if( (ProcessEvent & EVT_SET_LOCK_ON) == EVT_SET_LOCK_ON )
 		{
-			GPIO_Set_Pin_High(GPIO_OUTPUT_LOCK);
-			if(bDelay_ms(GPIO_LIGH, 60) != false)
+			GPIO_Set_Pin_Low(GPIO_OUTPUT_LOCK);
+			if(bDelay_ms(DELAY_GPIO_LOCK, 60) != false)
 			{
-				printf("set pin lock back down\r\n");
-				GPIO_Set_Pin_Low(GPIO_OUTPUT_LOCK);
+				APP_DEBUG("set pin lock back down\r\n");
+				GPIO_Set_Pin_High(GPIO_OUTPUT_LOCK);
 				ProcessEvent ^= EVT_SET_LOCK_ON;
 			}
 		}
@@ -121,16 +130,15 @@ static void ProcessTask_Wifi_EventHandler(void)
 		ProcessEvent ^= EVT_PROCESS_IDLE;
 	}
 
-//	if( (ProcessEvent & EVT_WIFI_START) == EVT_WIFI_START )
-//	{
-//		VSM_DEBUG("wifi try connect to %s\r\n", AppConfig.Wifi_STA_Config.ssid);
-//		if(Wifi_Connect_toAP((uint8_t*)AppConfig.Wifi_STA_Config.ssid, (uint8_t*)AppConfig.Wifi_STA_Config.pass,
-//						AppConfig.Wifi_STA_Config.wifi_security) == true)
-//			ProcessTask_SetEvent(EVT_WIFI_CONNECTED);
-//		else
-//			ProcessTask_SetEvent(EVT_WIFI_CHECK_CON);
-//		ProcessEvent ^= EVT_WIFI_START;
-//	}
+	if( (ProcessEvent & EVT_WIFI_START) == EVT_WIFI_START )
+	{
+		if(AppConfig.Wifi_STA_Config.ssid[0] == 0)
+			APP_DEBUG("Hold button in 2s to enter smart config....\r\n");
+		else
+			blufi_wifi_init(AppConfig.Wifi_STA_Config.ssid, AppConfig.Wifi_STA_Config.pass);
+
+		ProcessEvent ^= EVT_WIFI_START;
+	}
 
 	if( (ProcessEvent & EVT_WIFI_CONNECTED) == EVT_WIFI_CONNECTED )
 	{
@@ -153,14 +161,14 @@ static void ProcessTask_Wifi_EventHandler(void)
 
 	if( (ProcessEvent & EVT_WIFI_AVAILABLE) == EVT_WIFI_AVAILABLE )
 	{
-			if( (_WifiInfo.UserName[0] == 0) && (_WifiInfo.Password[0] == 0) )
-			{
-				APP_DEBUG("enter smart config\r\n");
-				ProcessEvent |= EVT_BLUFI_START;
-				ProcessEvent ^= EVT_WIFI_AVAILABLE;
-			}
-			else
-				ProcessEvent ^= EVT_WIFI_AVAILABLE;
+			// if( (_WifiInfo.UserName[0] == 0) && (_WifiInfo.Password[0] == 0) )
+			// {
+		APP_DEBUG("Enter smart config\r\n");
+		ProcessEvent |= EVT_BLUFI_START;
+		ProcessEvent ^= EVT_WIFI_AVAILABLE;
+			// }
+			// else
+				// ProcessEvent ^= EVT_WIFI_AVAILABLE;
 	}
 }
 
@@ -180,7 +188,7 @@ static void ProcessTask_MQTT_EventHandler(void)
 
 //	if( (ProcessEvent & EVT_MQTT_DISCONNECTED) == EVT_MQTT_DISCONNECTED )
 //	{
-//		VSM_DEBUG("Mqtt disconnect, check wifi....\r\n");
+//		APP_DEBUG("Mqtt disconnect, check wifi....\r\n");
 //		xFlag.scan_broker = true;
 //
 //		if(xFlag.wifi_connected == false)		//disconnect cause wifi
@@ -231,10 +239,14 @@ static void ProcessTask_SmartConfig(void)
 	{
 		APP_DEBUG("disable wifi, ble and mqtt....\r\n");
 		xFlag.wifi_connected = false;
-//		blufi_wifi_deinit();
-		blufi_wifi_start();
-		state_wifi_init = 1;
+		// blufi_wifi_deinit();
+		// Wifi_DeInit();
+		// vTaskDelay(100);
+		blufi_wifi_start(AppConfig.Wifi_STA_Config.ssid, AppConfig.Wifi_STA_Config.pass);
+		// state_wifi_init = 1;
 		//coding led blink
+		// blufi_wifi_init();
+		// initialise_wifi("GiangNV", "0972156484");
 		ProcessEvent ^= EVT_BLUFI_START;
 	}
 
@@ -258,12 +270,12 @@ static void ProcessTask_SmartConfig(void)
 //	{
 //		xFlag.wifi_connected = true;
 //
-//		VSM_DEBUG("Data after config: \r\n\r\n");
-//		VSM_DEBUG("broker: %s\r\n", AppConfig.MQTT_Config.broker);
-//		VSM_DEBUG("port: %d\r\n", AppConfig.MQTT_Config.port);
-//		VSM_DEBUG("user: %s\r\n", AppConfig.MQTT_Config.username);
-//		VSM_DEBUG("pass: %s\r\n", AppConfig.MQTT_Config.password);
-//		VSM_DEBUG("mode: %d\r\n", AppConfig.MQTT_Config.mode);
+//		APP_DEBUG("Data after config: \r\n\r\n");
+//		APP_DEBUG("broker: %s\r\n", AppConfig.MQTT_Config.broker);
+//		APP_DEBUG("port: %d\r\n", AppConfig.MQTT_Config.port);
+//		APP_DEBUG("user: %s\r\n", AppConfig.MQTT_Config.username);
+//		APP_DEBUG("pass: %s\r\n", AppConfig.MQTT_Config.password);
+//		APP_DEBUG("mode: %d\r\n", AppConfig.MQTT_Config.mode);
 //
 //
 //		//mode sw
@@ -277,7 +289,7 @@ static void ProcessTask_SmartConfig(void)
 //		}
 //		else		//local
 //		{
-//			VSM_DEBUG("find ip gw.....\r\n");
+//			APP_DEBUG("find ip gw.....\r\n");
 //			memset(IP_Broker_local, 0x00, sizeof(IP_Broker_local));
 //			broadcast_start();
 //			ProcessTask_SetEvent(EVT_GET_IP_GATEWAY);
@@ -293,7 +305,7 @@ static void ProcessTask_SmartConfig(void)
 //			{
 //				if(IP_Broker_local[0] != 0)
 //				{
-//					VSM_DEBUG("scan ip gw done.......\r\n");
+//					APP_DEBUG("scan ip gw done.......\r\n");
 //
 //					extern void MQTT_SetUp_SSL(void);
 //					MQTT_SetUp_SSL();
@@ -316,7 +328,7 @@ static void ProcessTask_SmartConfig(void)
 //			{
 //				if(IP_Broker_local[0] != 0)
 //				{
-//					VSM_DEBUG("smart config get ip gw done.......\r\n");
+//					APP_DEBUG("smart config get ip gw done.......\r\n");
 //					memset(AppConfig.MQTT_Config.broker, 0x00, sizeof(AppConfig.MQTT_Config.broker));
 //					strcpy(AppConfig.MQTT_Config.broker, IP_Broker_local);
 //					xFlag.bt_config = true;
@@ -341,7 +353,7 @@ static void ProcessTask_SmartConfig(void)
 //
 //	if( (ProcessEvent & EVT_BT_CONFIG_STOP) == EVT_BT_CONFIG_STOP )
 //	{
-//		VSM_DEBUG(" stop bt_config......\r\n ");
+//		APP_DEBUG(" stop bt_config......\r\n ");
 //
 //		//if mode local
 //		if( (AppConfig.MQTT_Config.mode == MQTT_CONN_LOCAL_SSL) ||(AppConfig.MQTT_Config.mode == MQTT_CONN_LOCAL_NO_SSL) )

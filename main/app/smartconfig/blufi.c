@@ -45,6 +45,8 @@
 #include "blufi.h"
 
 #include "../app.h"
+#include "../app_debug.h"
+#include "../device_info/device_info.h"
 
 
 static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param);
@@ -114,10 +116,9 @@ static uint8_t server_if;
 static uint16_t conn_id;
 
 
-wifi_info_t _WifiInfo = {0};
 
 
-
+extern AppConfig_t AppConfig;
 
 
 static void ip_event_handler(void* arg, esp_event_base_t event_base,
@@ -171,9 +172,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         gl_sta_ssid_len = event->ssid_len;
         if(blufi_set_status != NULL)
         {
-        	printf("deinit blufi.....\r\n");
-//        	blufi_set_status(EVT_WIFI_CONNECTED);
-        	esp_blufi_profile_deinit();
+            APP_DEBUG("stop blufi.....\r\n");
+            blufi_wifi_stop();
         }
         break;
     case WIFI_EVENT_STA_DISCONNECTED:
@@ -247,8 +247,39 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     return;
 }
 
-static void initialise_wifi(void)
+static void initialise_wifi(char* ssid, char* password)
 {
+   
+#if 0
+    wifi_event_group = xEventGroupCreate();
+
+	tcpip_adapter_init();
+	// ESP_ERROR_CHECK(esp_event_loop_init(event_handler_wifi, NULL) ); // @suppress("Symbol is not resolved")
+
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT(); // @suppress("Symbol is not resolved")
+	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+	wifi_config_t xWifi_Config =
+	{
+		.sta =
+		{
+			.scan_method = WIFI_FAST_SCAN,
+			.sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
+			.threshold.rssi = -127,
+			.threshold.authmode = WIFI_AUTH_WPA2_PSK,
+		},
+	};
+
+	strcpy((char *)xWifi_Config.sta.ssid, ssid);
+	strcpy((char *)xWifi_Config.sta.password, password);
+
+//	strcpy((char *)xWifi_Config.sta.ssid, _WifiInfo.UserName);
+//	strcpy((char *)xWifi_Config.sta.password, _WifiInfo.Password);
+
+	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
+	ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &xWifi_Config) );
+	ESP_ERROR_CHECK(esp_wifi_start() );
+	
+#else
     ESP_ERROR_CHECK(esp_netif_init());
     wifi_event_group = xEventGroupCreate();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -258,9 +289,30 @@ static void initialise_wifi(void)
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL));
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+
+    // esp_wifi_set_storage(WIFI_STORAGE_RAM);
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+
+    wifi_config_t xWifi_Config =
+    {
+        .sta =
+        {
+            .scan_method = WIFI_FAST_SCAN,
+            .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
+            .threshold.rssi = -127,
+            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+        },
+    };
+
+    strcpy((char *)xWifi_Config.sta.ssid, ssid);
+    strcpy((char *)xWifi_Config.sta.password, password);
+
+
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &xWifi_Config) );
     ESP_ERROR_CHECK( esp_wifi_start() );
+    APP_DEBUG("debug here\r\n");
+#endif
 }
 
 static esp_blufi_callbacks_t example_callbacks = {
@@ -279,7 +331,7 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     case ESP_BLUFI_EVENT_INIT_FINISH:
         BLUFI_INFO("BLUFI init finish\n");
 
-        esp_ble_gap_set_device_name(BLUFI_DEVICE_NAME);
+        esp_ble_gap_set_device_name(AppConfig.name_ble);
         esp_ble_gap_config_adv_data(&example_adv_data);
         break;
     case ESP_BLUFI_EVENT_DEINIT_FINISH:
@@ -356,19 +408,21 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
         strncpy((char *)sta_config.sta.ssid, (char *)param->sta_ssid.ssid, param->sta_ssid.ssid_len);
         sta_config.sta.ssid[param->sta_ssid.ssid_len] = '\0';
         esp_wifi_set_config(WIFI_IF_STA, &sta_config);
-        memset(_WifiInfo.UserName, 0x00, sizeof(_WifiInfo.UserName));
-        strcpy(_WifiInfo.UserName, (char*)sta_config.ap.ssid);
-//        BLUFI_INFO("Recv STA SSID %s\n", sta_config.sta.ssid);
-        BLUFI_INFO("Recv STA SSID %s\n", _WifiInfo.UserName);
+        memset(AppConfig.Wifi_STA_Config.ssid, 0x00, sizeof(AppConfig.Wifi_STA_Config.ssid));
+        strcpy(AppConfig.Wifi_STA_Config.ssid, (char*)sta_config.ap.ssid);
+        BLUFI_INFO("Recv STA SSID %s\n", AppConfig.Wifi_STA_Config.ssid);
         break;
 	case ESP_BLUFI_EVENT_RECV_STA_PASSWD:
         strncpy((char *)sta_config.sta.password, (char *)param->sta_passwd.passwd, param->sta_passwd.passwd_len);
         sta_config.sta.password[param->sta_passwd.passwd_len] = '\0';
         esp_wifi_set_config(WIFI_IF_STA, &sta_config);
-        memset(_WifiInfo.Password, 0x00, sizeof(_WifiInfo.Password));
-        strcpy(_WifiInfo.Password, (char*)sta_config.ap.password);
+        memset(AppConfig.Wifi_STA_Config.pass, 0x00, sizeof(AppConfig.Wifi_STA_Config.pass));
+        strcpy(AppConfig.Wifi_STA_Config.pass, (char*)sta_config.ap.password);
+
+        //note: check which event happen first
 //        BLUFI_INFO("Recv STA PASSWORD %s\n", sta_config.sta.password);
-        BLUFI_INFO("Recv STA PASSWORD %s\n", _WifiInfo.Password);
+        BLUFI_INFO("Recv STA PASSWORD %s\n", AppConfig.Wifi_STA_Config.pass);
+        app_saveConfig(&AppConfig, wifi);
         break;
 	case ESP_BLUFI_EVENT_RECV_SOFTAP_SSID:
         strncpy((char *)ap_config.ap.ssid, (char *)param->softap_ssid.ssid, param->softap_ssid.ssid_len);
@@ -420,7 +474,12 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
         BLUFI_INFO("Recv Custom Data %d\n", param->custom_data.data_len);
 //        esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
-        APP_DEBUG("custom Data = %s\r\n", param->custom_data.data);
+        
+        // char test[32] = {0};
+        memcpy(AppConfig.MQTT_Config.username, param->custom_data.data, param->custom_data.data_len);
+        APP_DEBUG("token set = %s\r\n", AppConfig.MQTT_Config.username);
+        app_saveConfig(&AppConfig, mqtt);
+
         break;
 	case ESP_BLUFI_EVENT_RECV_USERNAME:
         /* Not handle currently */
@@ -467,16 +526,20 @@ void blufi_register_status(void status_cb(uint32_t/*stt*/))
 
 
 
-void blufi_wifi_start(void)
+void blufi_wifi_start(char* ssid, char* pass)
 {
     esp_err_t ret;
 
     if(state_wifi_init == 0)
     {
-    	initialise_wifi();
-
-    	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+    	initialise_wifi(ssid, pass);    //review
+        state_wifi_init = 1;    
+        ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
     }
+    
+    //set name ble
+    if(AppConfig.name_ble[0] == 0)
+        sprintf(AppConfig.name_ble, "%s_%s", MODEL_DEVICE, AppConfig.ID_Device);
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ret = esp_bt_controller_init(&bt_cfg);
@@ -526,11 +589,22 @@ void blufi_wifi_start(void)
 void blufi_wifi_stop(void)
 {
 	esp_blufi_profile_deinit();
+    // esp_bt_controller_deinit();
 }
 
 
 void blufi_wifi_deinit(void)
 {
-	esp_wifi_deinit();
+    state_wifi_init = 0;
+	// esp_wifi_deinit();
+    // esp_wifi_disconnect();
+    esp_wifi_stop();
 }
 
+
+
+void blufi_wifi_init(char* ssid, char* password)
+{
+    initialise_wifi(ssid, password);
+    state_wifi_init = 1;
+}

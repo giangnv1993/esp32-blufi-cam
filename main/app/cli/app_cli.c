@@ -234,12 +234,12 @@ int32_t cli_wifi_reset(p_shell_context_t context, int32_t argc, char **argv) // 
 {
 //	if(argc > 1)
 //	{
-//		VSM_DEBUG("command wrong \r\n");
+//		APP_DEBUG("command wrong \r\n");
 //		return 0;
 //	}
 //	else if(strcmp(argv[0], ATRST) != 0)
 //	{
-//		VSM_DEBUG("command wrong \r\n");
+//		APP_DEBUG("command wrong \r\n");
 //		return 0;
 //	}
 //	else
@@ -250,12 +250,12 @@ int32_t cli_wifi_reset(p_shell_context_t context, int32_t argc, char **argv) // 
 int32_t  cli_wifi_conn(p_shell_context_t context, int32_t argc, char **argv) // @suppress("Type cannot be resolved")
 {
 //    if(argc > 3)
-//    	VSM_DEBUG("command wrong \r\n");
+//    	APP_DEBUG("command wrong \r\n");
 //    else
 //    {
 //    	if(strcmp(argv[0], ATCONN) != 0)
 //    	{
-//    		VSM_DEBUG("command wrong \r\n");
+//    		APP_DEBUG("command wrong \r\n");
 //    		return 0;
 //    	}
 //    	else
@@ -268,14 +268,14 @@ int32_t  cli_wifi_conn(p_shell_context_t context, int32_t argc, char **argv) // 
 
 static int32_t  cli_send_config(p_shell_context_t context, int32_t argc, char **argv) // @suppress("Type cannot be resolved")
 {
-//	VSM_DEBUG("argc = %d\r\n", argc);
+//	APP_DEBUG("argc = %d\r\n", argc);
 //	if(argc > 3)
-//		VSM_DEBUG("command wrong \r\n");
+//		APP_DEBUG("command wrong \r\n");
 //	else
 //	{
 //		if(strcmp(argv[0], ATSET) != 0)
 //		{
-//			VSM_DEBUG("command wrong \r\n");
+//			APP_DEBUG("command wrong \r\n");
 //			return 0;
 //		}
 //		else
@@ -300,7 +300,7 @@ static void cli_command_config_handle(char* obj, char* val)
 			return;
 		}
 	}
-	VSM_DEBUG("not found object control \r\n");
+	APP_DEBUG("not found object control \r\n");
 #endif
 }
 
@@ -316,10 +316,10 @@ static uint8_t command_handle_pwr(char* val)
 		message_control.data.power = turnon;
 	else
 	{
-		VSM_DEBUG("command wrong \r\n");
+		APP_DEBUG("command wrong \r\n");
 		return 0;
 	}
-	VSM_DEBUG_RAW("---- power : %s\r\n", message_control.data.power == turnon? "on": "off");
+	APP_DEBUG_RAW("---- power : %s\r\n", message_control.data.power == turnon? "on": "off");
 #endif
 	return 1;
 }
@@ -391,10 +391,10 @@ static uint8_t command_handle_smf(char* val)
 //	}
 //	else
 //	{
-//		VSM_DEBUG("command wrong \r\n");
+//		APP_DEBUG("command wrong \r\n");
 //		return 0;
 //	}
-//	VSM_DEBUG_RAW("---- smf_reps \r\n");
+//	APP_DEBUG_RAW("---- smf_reps \r\n");
 	return 1;
 }
 
@@ -403,24 +403,24 @@ static int32_t  cli_mqtt_inf(p_shell_context_t context, int32_t argc, char **arg
 #if 0
 	if(argc > 1)
 	{
-		VSM_DEBUG("command wrong \r\n");
+		APP_DEBUG("command wrong \r\n");
 		return 0;
 	}
 	else if(strcmp(argv[0], ATMQTT) != 0)
 	{
-		VSM_DEBUG("command wrong \r\n");
+		APP_DEBUG("command wrong \r\n");
 		return 0;
 	}
 	else
 	{
-		VSM_DEBUG("broker: %s\r\n", AppConfig.MQTT_Config.broker);
-		VSM_DEBUG("port: %d\r\n", AppConfig.MQTT_Config.port);
-		VSM_DEBUG("user: %s\r\n", AppConfig.MQTT_Config.username);
-		VSM_DEBUG("pass: %s\r\n", AppConfig.MQTT_Config.password);
-		VSM_DEBUG("mode: %d\r\n", AppConfig.MQTT_Config.mode);
+		APP_DEBUG("broker: %s\r\n", AppConfig.MQTT_Config.broker);
+		APP_DEBUG("port: %d\r\n", AppConfig.MQTT_Config.port);
+		APP_DEBUG("user: %s\r\n", AppConfig.MQTT_Config.username);
+		APP_DEBUG("pass: %s\r\n", AppConfig.MQTT_Config.password);
+		APP_DEBUG("mode: %d\r\n", AppConfig.MQTT_Config.mode);
 
-		VSM_DEBUG("wifi: %s\r\n", AppConfig.Wifi_STA_Config.ssid);
-		VSM_DEBUG("pass: %s\r\n", AppConfig.Wifi_STA_Config.pass);
+		APP_DEBUG("wifi: %s\r\n", AppConfig.Wifi_STA_Config.ssid);
+		APP_DEBUG("pass: %s\r\n", AppConfig.Wifi_STA_Config.pass);
 		return 0;
 	}
 #endif
@@ -433,12 +433,12 @@ static int32_t  cli_get_info(p_shell_context_t context, int32_t argc, char **arg
 #if 0
 	if(argc > 1)
 	{
-		VSM_DEBUG("command wrong \r\n");
+		APP_DEBUG("command wrong \r\n");
 		return 0;
 	}
 	else if(strcmp(argv[0], ATINFO) != 0)
 	{
-		VSM_DEBUG("command wrong \r\n");
+		APP_DEBUG("command wrong \r\n");
 		return 0;
 	}
 	else
@@ -459,7 +459,7 @@ static int32_t  cli_wifi_ota(p_shell_context_t context, int32_t argc, char **arg
 #if 0
 	if(argc > 1)
 	{
-		VSM_DEBUG("command wrong \r\n");
+		APP_DEBUG("command wrong \r\n");
 		return 0;
 	}
 	else if(strcmp(argv[0], ATOTA) != 0)

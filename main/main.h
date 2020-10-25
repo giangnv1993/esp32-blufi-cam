@@ -38,6 +38,8 @@
 
 #include "esp_partition.h"
 
+#include "esp_spiffs.h"
+
 //#include "os/os_cputime.h"
 
 

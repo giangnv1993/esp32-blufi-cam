@@ -24,7 +24,7 @@ int WIFI_CONNECTED_BIT = BIT0; // @suppress("Symbol is not resolved")
 //		.UserName = "giangnv",
 //		.Password = "Giang1993",
 //};
-
+extern AppConfig_t AppConfig;
 /******************************************************************************
  *function
 ******************************************************************************/
@@ -87,7 +87,7 @@ static esp_err_t event_handler_wifi(void *ctx, system_event_t *event)
 void Wifi_Init(Wifi_Mode_t Mode)
 {
 	if(Mode == WF_MODE_STA)
-		wifi_init_sta(_WifiInfo.UserName, _WifiInfo.Password);
+		wifi_init_sta(AppConfig.Wifi_STA_Config.ssid, AppConfig.Wifi_STA_Config.pass);
 	else
 	{
 		//run other mode
@@ -112,6 +112,7 @@ void Wifi_DeInit(void)
 ******************************************************************************/
 static void wifi_init_sta(char* ssid, char* password)
 {
+
 	wifi_event_group = xEventGroupCreate();
 
 	tcpip_adapter_init();
@@ -139,6 +140,7 @@ static void wifi_init_sta(char* ssid, char* password)
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
 	ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &xWifi_Config) );
 	ESP_ERROR_CHECK(esp_wifi_start() );
+	printf("debug here\r\n");
 }
 
 

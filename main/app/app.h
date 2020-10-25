@@ -11,36 +11,21 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-
+#include "../main.h"
 #include "mqtt/MQTTClient.h"
+// 
 
-#include "../Task/ProcessTask.h"
-#include "../Task/UartTask.h"
-//#include "mqtt/mqtt_task.h"
-//#include "../app/wifi/Wifi.h"
-#include "../app/smartconfig/blufi.h"
+#define PATH_FILE_WIFI          "/spiffs/myFile"
 
-#include "../Interface/UserTimer.h"
-
-#include "app_debug.h"
-#include "app_delay.h"
-#include "cli/app_cli.h"
-#include "Button/HardButton.h"
-
-//#include "../Interface/Spiffs/esp_spiffs.h"
+#define PATH_FILE_MQTT          "/spiffs/myMQTT"
 
 
-#define USE_MAC_12BYTE			(1)
 
-#if USE_MAC_12BYTE
-	#define SIZE_ID_DEVICE						(64)
-#else
-	#define SIZE_ID_DEVICE						(16)
-#endif
+#define SIZE_ID_DEVICE						(12)
 
-#define GPIO_OUTPUT_LIGHT    0			//GPIO0
-#define GPIO_OUTPUT_LOCK     14			// GPIO14
-#define GPIO_OUTPUT_PIN_SEL  ((1ULL<<GPIO_OUTPUT_LIGHT) | (1ULL<<GPIO_OUTPUT_LOCK))
+#define GPIO_OUTPUT_LIGHT    		2			//GPIO0
+#define GPIO_OUTPUT_LOCK     		14			// GPIO14
+#define GPIO_OUTPUT_PIN_SEL  		((1ULL<<GPIO_OUTPUT_LIGHT) | (1ULL<<GPIO_OUTPUT_LOCK))
 
 
 #define SIZE_NAME				(64)
@@ -51,7 +36,7 @@
 
 #define MAIN_BOARD_DATA_LEN		UART_LEN_MAX
 
-#define SERVER_MSG_LEN			(1024)
+#define SERVER_MSG_LEN			(64)
 
 #define SIZE_ID_Ed				(16)
 
@@ -84,11 +69,11 @@
 //fw2 start CB000 = 200000 - 135000
 //fw2 size (end) = BB000 + CB000 = 186000 = 200000 - 7A000
 
-typedef enum
-{
-	eOK = 1,
-	eNOK = 0
-}Result_t;
+// typedef enum
+// {
+// 	eOK = 1,
+// 	eNOK = 0
+// }Result_t;
 
 
 
@@ -130,7 +115,6 @@ typedef enum
 
 
 
-
 typedef struct
 {
 	char ssid[WIFI_SSID_PASS_SIZE + 1];
@@ -158,9 +142,10 @@ typedef struct
 
 typedef struct
 {
-//	MQTTClient_Config_t MQTT_Config;
+	MQTTClient_Config_t MQTT_Config;
 	Wifi_STA_conf_t Wifi_STA_Config;
 	char ID_Device[SIZE_ID_DEVICE + 1];
+	char name_ble[32];
 }AppConfig_t;
 
 
@@ -180,7 +165,7 @@ void app_init(AppConfig_t* __AppConfig);
 
 
 
-void app_saveConfig(AppConfig_t* __AppConfig);
+void app_saveConfig(AppConfig_t* __AppConfig, type_config_t __type_cfg);
 
 
 void app_memsetConfig(AppConfig_t* __AppConfig);
@@ -188,6 +173,10 @@ void app_memsetConfig(AppConfig_t* __AppConfig);
 void GPIO_Set_Pin_Low(gpio_num_t gpio);
 
 void GPIO_Set_Pin_High(gpio_num_t gpio);
+
+
+
+
 
 
 #endif /* SOURCE_APPDATA_H_ */

@@ -32,13 +32,17 @@ uint16_t blufi_crc_checksum(uint8_t iv8, uint8_t *data, int len);
 int blufi_security_init(void);
 void blufi_security_deinit(void);
 
-void blufi_wifi_start(void);
+void blufi_wifi_start(char* ssid, char* pass);
 
 void blufi_wifi_stop(void);
 
 void blufi_wifi_deinit(void);
 
+void blufi_wifi_init(char* ssid, char* password);
+
 void blufi_register_status(void status_cb(uint32_t/*stt*/));
+
+// void initialise_wifi(char* ssid, char* password);
 
 
 #endif /* MAIN_APP_SMARTCONFIG_BLUFI_H_ */

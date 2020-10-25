@@ -1,4 +1,4 @@
-/** @file: vsm_debug.c
+/** @file: APP_DEBUG.c
  *  @desc: Debugging
  *  @author: v.manhbt1@vinsmart.net.vn
  *  HISTORY:

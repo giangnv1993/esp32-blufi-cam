@@ -8,6 +8,8 @@
 #include "../Interface/UserTimer.h"
 #include "../app/app.h"
 
+#if 0
+
 extern uart_port_t user_uart;
 
 
@@ -71,3 +73,4 @@ static void UartTask(void *pvParameters)
  ******************************************************************************/
 
 
+#endif

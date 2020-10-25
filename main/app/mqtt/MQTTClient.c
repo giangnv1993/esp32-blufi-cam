@@ -22,7 +22,10 @@
 #include "esp_tls.h"
 #include "esp_ota_ops.h"
 
+#include "MQTTClient.h"
 #include "../app.h"
+#include "../message/message.h"
+#include "../app_debug.h"
 
 static const char *TAG = "MQTTS_EXAMPLE";
 
@@ -31,6 +34,11 @@ static void mqtt_revdata(char* data, uint16_t len, char* topic);
 
 static void mqtt_parser(char* data, uint16_t len);
 
+static void mqtt_publish(char* topic, char* data);
+
+static void mqtt_init(void);
+
+static bool MQTT_Register_SubTopic(char* topic, void msg_rx_cb(char*, uint16_t, uint8_t));
 
 esp_mqtt_client_handle_t client;
 
@@ -42,7 +50,13 @@ extern const uint8_t mqtt_eclipse_org_pem_start[]   asm("_binary_mqtt_eclipse_or
 extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_pem_end");
 
 
+extern AppConfig_t AppConfig;
 
+static uint8_t num_topic = 0;
+
+
+char topic_rev_data[SIZE_TOPIC_MQTT] = {0};
+char data_buff[MQTT_DATA_LENGTH_MAX] = {0};
 
 //
 // Note: this function is for testing purposes only publishing the entire active partition
@@ -77,11 +91,14 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-            msg_id = esp_mqtt_client_subscribe(client, "0987654abd/LOCK", 0);
+            msg_id = esp_mqtt_client_subscribe(client, AppConfig.MQTT_Config.list_topic[INDEX_SUB_TOPIC_LOCK_FORMAT].subtopic, 0);
             ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
-            msg_id = esp_mqtt_client_subscribe(client, "0987654abd/LIGHT", 0);
+            msg_id = esp_mqtt_client_subscribe(client, AppConfig.MQTT_Config.list_topic[INDEX_SUB_TOPIC_UV_FORMAT].subtopic, 0);
             ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
+
+            // msg_id = esp_mqtt_client_subscribe(client, "0987654abd/TIMER", 0);
+            // ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
 //            msg_id = esp_mqtt_client_unsubscribe(client, "/topic/qos1");
 //            ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
@@ -92,7 +109,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 
         case MQTT_EVENT_SUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-            msg_id = esp_mqtt_client_publish(client, "0987654abd/STATUS", "data", 0, 0, 0);
+            msg_id = esp_mqtt_client_publish(client, AppConfig.MQTT_Config.pubtopic, "online", 0, 0, 0);
             ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
             break;
         case MQTT_EVENT_UNSUBSCRIBED:
@@ -105,7 +122,10 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
             printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
             printf("DATA=%.*s\r\n", event->data_len, event->data);
-            mqtt_revdata(event->data, event->data_len, event->topic);
+
+			memcpy(topic_rev_data, event->topic, event->topic_len);
+			memcpy(data_buff, event->data, event->data_len);
+            mqtt_revdata(data_buff, event->data_len, topic_rev_data);
             break;
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -141,12 +161,16 @@ void mqtt_app_start(void)
 //        .cert_pem = (const char *)mqtt_eclipse_org_pem_start,
     		.host			= "node02.myqtthub.com",
 			.port			= 1883,
-			.client_id		= "987654321",
-			.username		= "Y9g5SHe8s - MO8nq",
+			// .client_id		= "987654321",
+            .client_id		= AppConfig.ID_Device,
+			// .username		= "Y9g5SHe8s - MO8nq",
+            .username		= AppConfig.MQTT_Config.username,
 			.password		= "",
 			.keepalive		= 60,
 //			.event_handle	= xMQTTClient_Event_Handler,
     };
+
+    mqtt_init();
 
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
     esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
@@ -158,30 +182,61 @@ void mqtt_app_start(void)
 
 
 
-void mqtt_publish(char* data, uint8_t index_topic)
+static void mqtt_publish(char* topic, char* data)
 {
-	esp_mqtt_client_publish(client, "0987654abd/STATUS", data, 0, 0, 0);
+	esp_mqtt_client_publish(client, topic, data, 0, 0, 0);
 }
+
+
+bool mqtt_msg_received = false;
 
 static void mqtt_revdata(char* data, uint16_t len, char* topic)
 {
-//	if(strcmp(topic, (char*)"0987654abd/LIGHT") == 0)
-//	{
-//		printf("data from topic: %s, data = %s\r\n", topic, data);
-//		mqtt_parser(data, len);
-//	}
-//	else if(strcmp(topic, (char*)"0987654abd/LOCK") == 0)
-//	{
-//		printf("data from topic: %s, data = %s\r\n", topic, data);
-//		mqtt_parser(data, len);
-//	}
+	#if 0
+	if( mqtt_msg_received == true )
+		{
+			memset((char*)data->message->payload, 0x00, data->message->payloadlen);
+			return;
+		}
 
-//	printf("data from topic: %s, data = %s\r\n", topic, data);
-	mqtt_parser(data, len);
+		if(data->message->payloadlen > LEN_MQTT_MAX)
+		{
+			memset((char*)data->message->payload, 0x00, data->message->payloadlen);
+			return;
+		}
+
+	mqtt_msg_received = true;
+//		VSM_DEBUG("Message arrived on topic %s: %s\n", data->topicName->lenstring.data, (char *)data->message->payload);
+	AppConfig.MQTT_Config.received((char *)data->message->payload, data->message->payloadlen, INDEX_SUB_TOPIC_CMD);
+	mqtt_msg_received = false;
+	memset((char*)data->message->payload, 0x00, data->message->payloadlen);
+
+	#endif
+
+	APP_DEBUG("has msg from topic : %s......\r\n", topic);
+	APP_DEBUG("has msg from data : %s......\r\n", data);
+	APP_DEBUG("has msg from len : %d......\r\n", len);
+	if(strcmp(topic, AppConfig.MQTT_Config.list_topic[INDEX_SUB_TOPIC_LOCK_FORMAT].subtopic) == 0)
+	{
+		printf("data from lock topic: %s, data = %s\r\n", topic, data);
+		AppConfig.MQTT_Config.list_topic[INDEX_SUB_TOPIC_LOCK_FORMAT].mqtt_rev_message(data, len, INDEX_SUB_TOPIC_LOCK_FORMAT);
+	}
+	else if(strcmp(topic, AppConfig.MQTT_Config.list_topic[INDEX_SUB_TOPIC_UV_FORMAT].subtopic) == 0)
+	{
+		printf("data from lock topic: %s, data = %s\r\n", topic, data);
+		AppConfig.MQTT_Config.list_topic[INDEX_SUB_TOPIC_UV_FORMAT].mqtt_rev_message(data, len, INDEX_SUB_TOPIC_UV_FORMAT);
+	}
+
+	memset(topic_rev_data, 0x00, sizeof(topic_rev_data));
+	memset(data_buff, 0x00, sizeof(data_buff));
+
+	// printf("data from topic: %s, data = %s\r\n", topic, data);
+	// // mqtt_parser(data, len);
+    // AppConfig.MQTT_Config.list_topic[INDEX_SUB_TOPIC_LOCK_FORMAT].mqtt_rev_message()
 }
 
 
-
+#if 0
 static void mqtt_parser(char* data, uint16_t len)
 {
 	if(len >=32)
@@ -242,10 +297,56 @@ static void mqtt_parser(char* data, uint16_t len)
 
 
 }
+#endif
+
+
+
+static void mqtt_init(void)
+{
+	//topic sub
+	char* sub_light_topic = (char*)calloc(SIZE_NAME + 1, sizeof(char));
+	char* sub_lock_topic = (char*)calloc(SIZE_NAME + 1, sizeof(char));
+	snprintf(sub_lock_topic, SIZE_NAME, MQTT_SUB_TOPIC_LOCK_FORMAT, AppConfig.ID_Device);
+	snprintf(sub_light_topic, SIZE_NAME, MQTT_SUB_TOPIC_UV_FORMAT, AppConfig.ID_Device);
+
+
+	//add topic to list_topic_sub
+	MQTT_Register_SubTopic(sub_lock_topic, message_received_fromServer);
+	MQTT_Register_SubTopic(sub_light_topic, message_received_fromServer);
+
+
+	//add topic publish
+	snprintf((char*)AppConfig.MQTT_Config.pubtopic, sizeof(AppConfig.MQTT_Config.pubtopic), MQTT_PUB_TOPIC_RESP_STATUS, AppConfig.ID_Device);
+	// snprintf((char*)pub_topic[INDEX_PUB_TOPIC_KEEP_ALIVE], sizeof(pub_topic[INDEX_PUB_TOPIC_KEEP_ALIVE]), MQTT_PUB_TOPIC_KEEP_ALIVE_FOMAT, AppConfig.ID_Device);
+
+	//set api publish
+	AppConfig.MQTT_Config.publish = mqtt_publish;
+	// MQTT_Register_RxCallBack(message_received_fromServer);
+
+
+	
+	APP_DEBUG("sub_lock_topic_0 = %s\r\n", sub_lock_topic);
+	APP_DEBUG("sub_light_topic_1 = %s\r\n", sub_light_topic);
+	APP_DEBUG("MQTT_PUB_TOPIC_RESP_STATUS = %s\r\n", AppConfig.MQTT_Config.pubtopic);
+    
+	free(sub_light_topic);
+	free(sub_lock_topic);
+}
 
 
 
 
+static bool MQTT_Register_SubTopic(char* topic, void msg_rx_cb(char*, uint16_t, uint8_t))
+{
+	if( (num_topic >= subtopic_max) || (topic == NULL) || (msg_rx_cb == NULL) )
+	{
+		APP_DEBUG("regiter sub topic failed!\r\n");
+		return false;
+	}
 
-
-
+	strcpy((char*)AppConfig.MQTT_Config.list_topic[num_topic].subtopic, topic);
+	AppConfig.MQTT_Config.list_topic[num_topic].mqtt_rev_message = msg_rx_cb;
+	num_topic++;
+	APP_DEBUG("register topic %s success\r\n", topic);
+	return true;
+}

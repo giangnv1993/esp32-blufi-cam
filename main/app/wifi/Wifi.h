@@ -14,11 +14,11 @@
 #define NET_IF_NUM ((CONFIG_ETHERNET) + (CONFIG_WLAN) + 1)
 
 
-typedef struct
-{
-	char UserName[32];
-	char Password[64];
-}wifi_info_t;
+// typedef struct
+// {
+// 	char UserName[32];
+// 	char Password[64];
+// }wifi_info_t;
 
 
 typedef enum {
@@ -28,6 +28,8 @@ typedef enum {
 }Wifi_Mode_t;
 
 void Wifi_Init(Wifi_Mode_t mode);
+
+void Wifi_DeInit(void);
 
 
 //void Wifi_DeInit(void);

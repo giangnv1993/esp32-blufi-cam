@@ -15,8 +15,8 @@
 typedef enum
 {
 	DELAY_DEBUG1,
-	DELAY_DEBUG2,
-	GPIO_LIGH,
+	LIGHT_TIMER,
+	DELAY_GPIO_LOCK,
 	DELAY_PARTICAL_MAX,
 }delay_ms_list_t;
 
